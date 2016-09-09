@@ -8,6 +8,8 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ListView;
 import java.util.ArrayList;
 import android.widget.AdapterView;
@@ -19,7 +21,7 @@ import java.util.Date;
 import android.support.v7.app.AlertDialog;
 import android.content.DialogInterface;
 
-public class MainActivity extends AppCompatActivity
+public class MainActivity extends AppCompatActivity implements View.OnClickListener
 {
     public final static String EXTRA_TASK = "jp.techacademy.taro.kirameki.taskapp.TASK";
 
@@ -31,6 +33,8 @@ public class MainActivity extends AppCompatActivity
             reloadListView();
         }
     };
+    private EditText mEditTextCategory;
+    private Button mBtnSearch;
     private ListView mListView;
     private TaskAdapter mTaskAdapter;
 
@@ -39,14 +43,16 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // カテゴリ入力用テキストの設定
+        mEditTextCategory = (EditText)findViewById(R.id.editTextCategory);
+
+        // 検索用ボタンの設定
+        mBtnSearch = (Button)findViewById(R.id.btnSearch);
+        mBtnSearch.setOnClickListener(this);
+
+        // FloatingActionButton の設定
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Intent intent = new Intent(MainActivity.this, InputActivity.class);
-                startActivity(intent);
-            }
-        });
+        fab.setOnClickListener(this);
 
         // Realmの設定
         mRealm = Realm.getDefaultInstance();
@@ -137,6 +143,7 @@ public class MainActivity extends AppCompatActivity
             task.setId(mTaskRealmResults.get(i).getId());
             task.setTitle(mTaskRealmResults.get(i).getTitle());
             task.setContents(mTaskRealmResults.get(i).getContents());
+            task.setCategory(mTaskRealmResults.get(i).getCategory());
             task.setDate(mTaskRealmResults.get(i).getDate());
 
             taskArrayList.add(task);
@@ -163,5 +170,37 @@ public class MainActivity extends AppCompatActivity
         mRealm.beginTransaction();
         mRealm.copyToRealmOrUpdate(task);
         mRealm.commitTransaction();
+    }
+
+    @Override
+    public void onClick(View view) {
+        if(view.getId() == R.id.fab)
+        {
+            // タスク追加・更新ボタンクリック
+            Intent intent = new Intent(MainActivity.this, InputActivity.class);
+            startActivity(intent);
+        }
+        else if(view.getId() == R.id.btnSearch)
+        {
+            // 入力された文字列（カテゴリ）を取得
+            String strCategory = mEditTextCategory.getText().toString();
+
+            // カテゴリ検索
+            mTaskRealmResults = mRealm.where(Task.class).equalTo("category", strCategory).findAll();
+            if(mTaskRealmResults.size() == 0)
+            {
+                MessageDialog dialogFragment = MessageDialog.newInstance("検索結果", "該当するタスクはありません。");
+                dialogFragment.show(getFragmentManager(), "dialog_fragment");
+
+                // 全検索した結果を表示する
+                mEditTextCategory.setText("");
+                mTaskRealmResults = mRealm.where(Task.class).findAll();
+            }
+            mTaskRealmResults.sort("date", Sort.DESCENDING);
+            mRealm.addChangeListener(mRealmListener);
+
+            reloadListView();
+
+        }
     }
 }
